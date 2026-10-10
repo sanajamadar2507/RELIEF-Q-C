@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RELIEF-Q — Disaster Relief Resource Allocation Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">RQ</div>
+      <div class="brand-text">
+        <h1>RELIEF-Q</h1>
+        <p>Disaster Relief Allocation Simulator</p>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-page="dashboard">
+        <span class="nav-dot"></span> Dashboard
+      </button>
+      <button class="nav-item" data-page="requests">
+        <span class="nav-dot"></span> Relief Requests
+      </button>
+      <button class="nav-item" data-page="inventory">
+        <span class="nav-dot"></span> Resource Inventory
+      </button>
+      <button class="nav-item" data-page="pqueue">
+        <span class="nav-dot"></span> Priority Queue
+      </button>
+      <button class="nav-item" data-page="allocation">
+        <span class="nav-dot"></span> Allocation
+      </button>
+      <button class="nav-item" data-page="history">
+        <span class="nav-dot"></span> Allocation History
+      </button>
+      <button class="nav-item" data-page="search">
+        <span class="nav-dot"></span> Search
+      </button>
+      <button class="nav-item" data-page="sort">
+        <span class="nav-dot"></span> Sort
+      </button>
+      <button class="nav-item" data-page="reports">
+        <span class="nav-dot"></span> Reports
+      </button>
+      <button class="nav-item" data-page="about">
+        <span class="nav-dot"></span> FDS Map / Docs
+      </button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <p>First-Year CSE · Fundamental Data Structures Project</p>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main class="main">
+
+    <header class="topbar">
+      <div>
+        <h2 id="pageTitle">Dashboard</h2>
+        <p id="pageSubtitle">Live overview of the current relief situation</p>
+      </div>
+      <div class="topbar-clock" id="clock"></div>
+    </header>
+
+    <!-- ---------- PAGE: DASHBOARD ---------- -->
+    <section class="page active" id="page-dashboard">
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <span class="stat-label">Total Requests</span>
+          <span class="stat-value" id="stat-total">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Pending</span>
+          <span class="stat-value" id="stat-pending">0</span>
+        </div>
+        <div class="stat-card accent-critical">
+          <span class="stat-label">Critical</span>
+          <span class="stat-value" id="stat-critical">0</span>
+        </div>
+        <div class="stat-card accent-complete">
+          <span class="stat-label">Completed</span>
+          <span class="stat-value" id="stat-completed">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Resources Available</span>
+          <span class="stat-value" id="stat-res-available">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Resources Distributed</span>
+          <span class="stat-value" id="stat-res-distributed">0</span>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <h3>Priority Distribution</h3>
+          <div id="priorityBars" class="bar-list"></div>
+        </div>
+
+        <div class="panel">
+          <h3>Resource Inventory Snapshot</h3>
+          <div id="dashInventory" class="bar-list"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Live Relief Operations</h3>
+          <span class="muted">most recent events</span>
+        </div>
+        <ul id="liveFeed" class="live-feed"></ul>
+      </div>
+
+    </section>
+
+    <!-- ---------- PAGE: REQUESTS ---------- -->
+    <section class="page" id="page-requests">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Submit New Relief Request</h3>
+          <span class="muted">Enters the waiting Queue immediately</span>
+        </div>
+        <form id="requestForm" class="grid-form">
+          <label>Request ID
+            <input type="text" id="f-id" placeholder="e.g. R111" required>
+          </label>
+          <label>Disaster Area
+            <input type="text" id="f-area" placeholder="e.g. Village K" required>
+          </label>
+          <label>Location
+            <input type="text" id="f-location" placeholder="e.g. Pune" required>
+          </label>
+          <label>Disaster Type
+            <select id="f-disaster" required>
+              <option value="">Select</option>
+              <option>Flood</option>
+              <option>Earthquake</option>
+              <option>Cyclone</option>
+              <option>Landslide</option>
+              <option>Drought</option>
+              <option>Fire</option>
+            </select>
+          </label>
+          <label>Population Affected
+            <input type="number" id="f-population" min="1" placeholder="e.g. 500" required>
+          </label>
+          <label>Resource Required
+            <select id="f-resource" required>
+              <option value="">Select</option>
+              <option>Food</option>
+              <option>Water</option>
+              <option>Medicines</option>
+              <option>Blankets</option>
+              <option>Tents</option>
+              <option>Clothes</option>
+              <option>Emergency Kits</option>
+            </select>
+          </label>
+          <label>Quantity Required
+            <input type="number" id="f-quantity" min="1" placeholder="e.g. 300" required>
+          </label>
+          <label>Priority
+            <select id="f-priority" required>
+              <option value="">Select</option>
+              <option>Critical</option>
+              <option>High</option>
+              <option>Medium</option>
+              <option>Low</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Submit Request → Queue</button>
+            <span id="formError" class="form-error"></span>
+          </div>
+        </form>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Waiting Queue <span class="pill" id="queueCountPill">0</span></h3>
+          <button class="btn btn-secondary" id="classifyNextBtn">Classify Next → Priority Queue</button>
+        </div>
+        <p class="muted">FIFO order — the request at the front was submitted first.</p>
+        <div class="table-wrap">
+          <table id="queueTable">
+            <thead><tr><th>#</th><th>Request ID</th><th>Area</th><th>Priority</th><th>Resource</th><th>Qty</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>All Relief Requests</h3>
+        <div class="table-wrap">
+          <table id="allRequestsTable">
+            <thead><tr>
+              <th>ID</th><th>Area</th><th>Location</th><th>Type</th><th>Pop.</th>
+              <th>Resource</th><th>Req. Qty</th><th>Allocated</th><th>Priority</th><th>Status</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- PAGE: INVENTORY ---------- -->
+    <section class="page" id="page-inventory">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Add / Top-up Resource</h3>
+        </div>
+        <form id="resourceForm" class="grid-form">
+          <label>Resource Name
+            <input type="text" id="r-name" placeholder="e.g. Water" required>
+          </label>
+          <label>Quantity to Add
+            <input type="number" id="r-qty" min="1" placeholder="e.g. 200" required>
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Add Resource</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h3>Resource Inventory (Array)</h3>
+        <div class="table-wrap">
+          <table id="inventoryTable">
+            <thead><tr><th>Resource</th><th>Total</th><th>Available</th><th>Distributed</th><th>Usage</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- PAGE: PRIORITY QUEUE ---------- -->
+    <section class="page" id="page-pqueue">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Priority Queue — Grouped by Level</h3>
+          <button class="btn btn-primary" id="pqAllocateBtn">Process Next Highest Priority →</button>
+        </div>
+        <p class="muted">Critical is always served before High, High before Medium, Medium before Low. Within the same level, earliest arrival is served first.</p>
+        <div id="pqLevels" class="pq-levels"></div>
+      </div>
+    </section>
+
+    <!-- ---------- PAGE: ALLOCATION ---------- -->
+    <section class="page" id="page-allocation">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Allocate Relief Resources</h3>
+        </div>
+        <p class="muted">Selects the highest-priority request from the Priority Queue and attempts to fulfill it from current inventory.</p>
+        <button class="btn btn-primary btn-lg" id="allocateBtn">▶ Allocate Next Priority Request</button>
+        <div id="allocateResult" class="allocate-result"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Requests Waiting for Resources</h3>
+        <p class="muted">Insufficient inventory at the time of allocation. Retry once more stock is added.</p>
+        <div class="table-wrap">
+          <table id="waitingTable">
+            <thead><tr><th>ID</th><th>Area</th><th>Resource</th><th>Required</th><th>Priority</th><th>Action</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- PAGE: HISTORY ---------- -->
+    <section class="page" id="page-history">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Allocation History (Stack)</h3>
+          <button class="btn btn-secondary" id="undoBtn">↺ Undo Last Allocation</button>
+        </div>
+        <p class="muted">Newest allocation is always shown on top — this is the Stack's LIFO principle.</p>
+        <div class="table-wrap">
+          <table id="historyTable">
+            <thead><tr><th>Alloc. ID</th><th>Request ID</th><th>Resource</th><th>Qty</th><th>Location</th><th>Status</th><th>Time</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- PAGE: SEARCH ---------- -->
+    <section class="page" id="page-search">
+      <div class="panel">
+        <h3>Search Relief Requests</h3>
+        <div class="search-bar">
+          <select id="searchField">
+            <option value="requestID">Request ID</option>
+            <option value="location">Location</option>
+            <option value="disasterType">Disaster Type</option>
+            <option value="resource">Resource</option>
+          </select>
+          <input type="text" id="searchInput" placeholder="Type to search…">
+          <button class="btn btn-primary" id="searchBtn">Linear Search</button>
+          <button class="btn btn-secondary" id="binarySearchBtn">Binary Search by ID</button>
+        </div>
+        <p id="searchMeta" class="muted"></p>
+        <div class="table-wrap">
+          <table id="searchTable">
+            <thead><tr><th>ID</th><th>Area</th><th>Location</th><th>Type</th><th>Resource</th><th>Priority</th><th>Status</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- PAGE: SORT ---------- -->
+    <section class="page" id="page-sort">
+      <div class="panel">
+        <h3>Sort Relief Requests (Bubble Sort)</h3>
+        <div class="search-bar">
+          <select id="sortField">
+            <option value="priority">Priority</option>
+            <option value="population">Population Affected</option>
+            <option value="quantity">Quantity Required</option>
+            <option value="requestID">Request ID</option>
+          </select>
+          <select id="sortDir">
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
+          <button class="btn btn-primary" id="sortBtn">Sort</button>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <h4 class="mini-head">Before Sorting</h4>
+            <div class="table-wrap">
+              <table id="beforeSortTable">
+                <thead><tr><th>ID</th><th>Priority</th><th>Population</th><th>Qty</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h4 class="mini-head">After Sorting</h4>
+            <div class="table-wrap">
+              <table id="afterSortTable">
+                <thead><tr><th>ID</th><th>Priority</th><th>Population</th><th>Qty</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- PAGE: REPORTS ---------- -->
+    <section class="page" id="page-reports">
+      <div class="grid-2">
+        <div class="panel">
+          <h3>Summary</h3>
+          <ul class="report-list" id="reportSummary"></ul>
+        </div>
+        <div class="panel">
+          <h3>Distribution by Priority</h3>
+          <div id="reportPriority" class="bar-list"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Distribution by Disaster Type</h3>
+        <div id="reportDisaster" class="bar-list"></div>
+      </div>
+      <div class="panel">
+        <h3>Completed / Distributed Requests (Linked List contents)</h3>
+        <div class="table-wrap">
+          <table id="completedTable">
+            <thead><tr><th>ID</th><th>Area</th><th>Resource</th><th>Allocated</th><th>Status</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- PAGE: ABOUT / FDS MAP ---------- -->
+    <section class="page" id="page-about">
+      <div class="panel">
+        <h3>Where Each Data Structure Is Used</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data Structure</th><th>Used For</th><th>Where to See It</th></tr></thead>
+            <tbody>
+              <tr><td>Array</td><td>Resource inventory (Food, Water, Medicines…)</td><td>Resource Inventory page</td></tr>
+              <tr><td>Structure / Class</td><td>Each relief request record</td><td>Every request card / row</td></tr>
+              <tr><td>Linked List</td><td>Completed / distributed requests</td><td>Reports page</td></tr>
+              <tr><td>Queue</td><td>Requests waiting for initial classification</td><td>Relief Requests page</td></tr>
+              <tr><td>Priority Queue</td><td>Priority-based allocation order</td><td>Priority Queue page</td></tr>
+              <tr><td>Stack</td><td>Allocation history / undo</td><td>Allocation History page</td></tr>
+              <tr><td>Linear &amp; Binary Search</td><td>Finding a request</td><td>Search page</td></tr>
+              <tr><td>Bubble Sort</td><td>Ordering requests</td><td>Sort page</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">See the accompanying README.md for full algorithms, complexity analysis, and viva questions.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="js/dataStructures.js"></script>
+<script src="js/sampleData.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

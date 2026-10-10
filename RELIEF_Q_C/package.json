@@ -1,0 +1,23 @@
+{
+  "name": "relief-q",
+  "version": "2.0.0",
+  "description": "Priority-Based Disaster Relief Resource Allocation and Distribution Simulator Using Fundamental Data Structures in C and WebAssembly",
+  "scripts": {
+    "start": "python server.py",
+    "serve": "node scripts/serve.js",
+    "test": "gcc -Wall -Wextra -O2 -I c_src c_src/data_structures.c c_src/simulator.c c_src/json_utils.c tests/test_relief_q.c -o tests/test_relief_q.exe && tests/test_relief_q.exe",
+    "build": "node scripts/build.js",
+    "vercel-build": "node scripts/build.js"
+  },
+  "keywords": [
+    "fods",
+    "data-structures",
+    "c",
+    "webassembly",
+    "disaster-relief",
+    "priority-queue",
+    "simulation"
+  ],
+  "author": "RELIEF-Q Team",
+  "license": "MIT"
+}

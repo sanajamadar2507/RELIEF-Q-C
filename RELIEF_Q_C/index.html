@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RELIEF-Q — Priority-Based Disaster Relief Resource Allocation Simulator (C / WebAssembly)</title>
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">RQ</div>
+      <div class="brand-text">
+        <h1>RELIEF-Q</h1>
+        <p>Disaster Relief Allocator</p>
+      </div>
+    </div>
+
+    <!-- C Engine Status Card -->
+    <div class="engine-badge-card" id="engineStatusCard">
+      <div class="engine-status-row">
+        <span class="engine-dot" id="engineDot"></span>
+        <span class="engine-label" id="engineLabel">Loading C Wasm Engine…</span>
+      </div>
+      <div class="engine-details" id="engineDetails">Compiled from native C with Emscripten</div>
+    </div>
+
+    <!-- Navigation items -->
+    <nav class="nav" id="sidebarNav">
+      <button class="nav-item active" data-page="dashboard">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-item" data-page="requests">
+        <span class="nav-icon">📝</span>
+        <span class="nav-label">Relief Requests</span>
+        <span class="nav-count-badge" id="navQueueBadge">0</span>
+      </button>
+      <button class="nav-item" data-page="inventory">
+        <span class="nav-icon">📦</span>
+        <span class="nav-label">Resource Inventory</span>
+      </button>
+      <button class="nav-item" data-page="pqueue">
+        <span class="nav-icon">⚡</span>
+        <span class="nav-label">Priority Queue</span>
+        <span class="nav-count-badge" id="navPqBadge">0</span>
+      </button>
+      <button class="nav-item" data-page="allocation">
+        <span class="nav-icon">🎯</span>
+        <span class="nav-label">Allocation Operations</span>
+      </button>
+      <button class="nav-item" data-page="history">
+        <span class="nav-icon">📜</span>
+        <span class="nav-label">Allocation History</span>
+      </button>
+      <button class="nav-item" data-page="search">
+        <span class="nav-icon">🔍</span>
+        <span class="nav-label">Search Requests</span>
+      </button>
+      <button class="nav-item" data-page="sort">
+        <span class="nav-icon">🔃</span>
+        <span class="nav-label">Bubble Sort</span>
+      </button>
+      <button class="nav-item" data-page="reports">
+        <span class="nav-icon">📈</span>
+        <span class="nav-label">Analytics &amp; Reports</span>
+      </button>
+      <button class="nav-item" data-page="about">
+        <span class="nav-icon">🎓</span>
+        <span class="nav-label">FODS Viva &amp; Architecture</span>
+      </button>
+    </nav>
+
+    <!-- Sidebar footer -->
+    <div class="sidebar-foot">
+      <div class="foot-title">FODS Mini-Project</div>
+      <div class="foot-subtitle">C Core · WebAssembly · Vercel Ready</div>
+      <div class="foot-links">
+        <button id="quickReloadBtn" title="Reload sample requests and inventory" class="btn-link">Reload Samples</button>
+        <span>·</span>
+        <button id="quickResetBtn" title="Reset all records to empty" class="btn-link">Reset System</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN CONTENT ===================== -->
+  <main class="main" id="mainContent">
+
+    <!-- Top Navigation Bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle navigation">
+          <span></span><span></span><span></span>
+        </button>
+        <div>
+          <h2 id="pageTitle">Dashboard</h2>
+          <p id="pageSubtitle">Live overview of current disaster relief allocation and inventory</p>
+        </div>
+      </div>
+      
+      <div class="topbar-right">
+        <div class="status-pill" id="storagePill" title="Browser local state caching">
+          <span class="status-indicator"></span>
+          <span id="storageLabel">Session Active</span>
+        </div>
+        <div class="topbar-clock" id="clock">--:--:--</div>
+      </div>
+    </header>
+
+    <!-- ========================================================
+         PAGE 1: DASHBOARD
+         ======================================================== -->
+    <section class="page active" id="page-dashboard">
+      
+      <!-- System Overview Banner -->
+      <div class="hero-banner">
+        <div class="hero-text">
+          <h3>Command &amp; Dispatch Simulation</h3>
+          <p>Real-time resource allocation powered by an authoritative C engine running via WebAssembly in your browser.</p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn btn-hero" id="dashAllocateBtn">
+            <span>⚡ Allocate Next Priority</span>
+          </button>
+          <button class="btn btn-hero-secondary" id="dashClassifyBtn">
+            <span>Classify Queued Requests</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Stat Cards Grid (6 cards) -->
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-card-head">
+            <span class="stat-label">Total Requests</span>
+            <span class="stat-icon">📋</span>
+          </div>
+          <span class="stat-value" id="stat-total">0</span>
+          <span class="stat-sub">Logged across all regions</span>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-card-head">
+            <span class="stat-label">Pending</span>
+            <span class="stat-icon">⏳</span>
+          </div>
+          <span class="stat-value" id="stat-pending">0</span>
+          <span class="stat-sub">Waiting in Queue/PQ</span>
+        </div>
+
+        <div class="stat-card accent-critical">
+          <div class="stat-card-head">
+            <span class="stat-label">Critical Urgency</span>
+            <span class="stat-icon">🚨</span>
+          </div>
+          <span class="stat-value" id="stat-critical">0</span>
+          <span class="stat-sub">High priority lane</span>
+        </div>
+
+        <div class="stat-card accent-complete">
+          <div class="stat-card-head">
+            <span class="stat-label">Completed</span>
+            <span class="stat-icon">✅</span>
+          </div>
+          <span class="stat-value" id="stat-completed">0</span>
+          <span class="stat-sub">Stored in Linked List</span>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-card-head">
+            <span class="stat-label">Stock Available</span>
+            <span class="stat-icon">📦</span>
+          </div>
+          <span class="stat-value" id="stat-res-available">0</span>
+          <span class="stat-sub">Units ready in Array</span>
+        </div>
+
+        <div class="stat-card accent-distributed">
+          <div class="stat-card-head">
+            <span class="stat-label">Stock Distributed</span>
+            <span class="stat-icon">🚚</span>
+          </div>
+          <span class="stat-value" id="stat-res-distributed">0</span>
+          <span class="stat-sub">Units delivered so far</span>
+        </div>
+      </div>
+
+      <!-- 2-Column Split: Priority Breakdown vs Resource Inventory Snapshot -->
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title-group">
+              <h3>Priority Distribution</h3>
+              <span class="panel-tag">Queue Demands</span>
+            </div>
+          </div>
+          <p class="muted">Proportion of relief demand categorized by emergency urgency level.</p>
+          <div id="priorityBars" class="bar-list"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title-group">
+              <h3>Resource Inventory Snapshot</h3>
+              <span class="panel-tag">Array Store</span>
+            </div>
+            <button class="btn btn-sm btn-secondary" onclick="window.goToPage('inventory')">Manage Stock →</button>
+          </div>
+          <p class="muted">Current available stock versus total initial warehouse capacities.</p>
+          <div id="dashInventory" class="bar-list"></div>
+        </div>
+      </div>
+
+      <!-- Live Operations Feed -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Live Relief Operations</h3>
+            <span class="panel-tag">Event Log</span>
+          </div>
+          <span class="muted">C Engine Event Bus (Most Recent on Top)</span>
+        </div>
+        <ul id="liveFeed" class="live-feed"></ul>
+      </div>
+
+    </section>
+
+    <!-- ========================================================
+         PAGE 2: RELIEF REQUESTS
+         ======================================================== -->
+    <section class="page" id="page-requests">
+      
+      <!-- Submission Form Panel -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Submit New Relief Request</h3>
+            <span class="panel-tag">Enters FIFO Queue</span>
+          </div>
+        </div>
+        <p class="muted">Newly submitted requests enter the waiting FIFO Queue for initial validation and classification.</p>
+
+        <form id="requestForm" class="grid-form">
+          <label>Request ID
+            <input type="text" id="f-id" placeholder="e.g. R111" required autocomplete="off">
+          </label>
+          <label>Disaster Area
+            <input type="text" id="f-area" placeholder="e.g. Village K" required autocomplete="off">
+          </label>
+          <label>District / Location
+            <input type="text" id="f-location" placeholder="e.g. Pune" required autocomplete="off">
+          </label>
+          <label>Disaster Type
+            <select id="f-disaster" required>
+              <option value="">Select Disaster Type</option>
+              <option>Flood</option>
+              <option>Earthquake</option>
+              <option>Cyclone</option>
+              <option>Landslide</option>
+              <option>Drought</option>
+              <option>Fire</option>
+            </select>
+          </label>
+          <label>Population Affected
+            <input type="number" id="f-population" min="1" placeholder="e.g. 500" required>
+          </label>
+          <label>Resource Required
+            <select id="f-resource" required>
+              <option value="">Select Resource</option>
+              <option>Food</option>
+              <option>Water</option>
+              <option>Medicines</option>
+              <option>Blankets</option>
+              <option>Tents</option>
+              <option>Clothes</option>
+              <option>Emergency Kits</option>
+            </select>
+          </label>
+          <label>Quantity Required
+            <input type="number" id="f-quantity" min="1" placeholder="e.g. 300" required>
+          </label>
+          <label>Urgency Priority
+            <select id="f-priority" required>
+              <option value="">Select Priority</option>
+              <option value="Critical">Critical (Immediate danger to life)</option>
+              <option value="High">High (Severe conditions)</option>
+              <option value="Medium">Medium (Moderate impact)</option>
+              <option value="Low">Low (Non-urgent supplies)</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Submit Request → Enqueue</button>
+            <span id="formError" class="form-error"></span>
+          </div>
+        </form>
+      </div>
+
+      <!-- Waiting Queue Panel -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Waiting Queue (FIFO) <span class="pill" id="queueCountPill">0</span></h3>
+            <span class="panel-tag">Arrival Order</span>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-secondary" id="classifyNextBtn">Classify Next → Priority Queue</button>
+            <button class="btn btn-secondary" id="classifyAllBtn">Classify All → Priority Queue</button>
+          </div>
+        </div>
+        <p class="muted">First-In, First-Out (FIFO) queue for unclassified requests. Items at the front arrived earliest.</p>
+        <div class="table-wrap">
+          <table id="queueTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Request ID</th>
+                <th>Area</th>
+                <th>Priority</th>
+                <th>Resource</th>
+                <th>Quantity</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Master All Requests Table -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Master Relief Requests Registry</h3>
+            <span class="panel-tag">Array of Structures</span>
+          </div>
+          <div class="filter-controls">
+            <input type="text" id="masterTableSearch" placeholder="Filter requests…" class="input-sm">
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="allRequestsTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Area</th>
+                <th>Location</th>
+                <th>Disaster</th>
+                <th>Population</th>
+                <th>Resource</th>
+                <th>Required</th>
+                <th>Allocated</th>
+                <th>Priority</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================
+         PAGE 3: RESOURCE INVENTORY
+         ======================================================== -->
+    <section class="page" id="page-inventory">
+      
+      <!-- Add Resource Form -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Add / Top-up Resource Stock</h3>
+            <span class="panel-tag">Direct Array Operations</span>
+          </div>
+        </div>
+        <p class="muted">Add new supplies or replenish existing warehouse resources. Handled directly by the C inventory array.</p>
+        
+        <form id="resourceForm" class="grid-form">
+          <label>Resource Name
+            <input type="text" id="r-name" placeholder="e.g. Water, Blankets, Fuel" required autocomplete="off">
+          </label>
+          <label>Quantity to Add
+            <input type="number" id="r-qty" min="1" placeholder="e.g. 500" required>
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Add Supplies to Warehouse</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Inventory Table -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Resource Warehouse Inventory</h3>
+            <span class="panel-tag">Contiguous Array</span>
+          </div>
+        </div>
+        <p class="muted">Shows total recorded supplies, currently available unassigned stock, and distributed totals.</p>
+        
+        <div class="table-wrap">
+          <table id="inventoryTable">
+            <thead>
+              <tr>
+                <th>Resource</th>
+                <th>Total Inflow</th>
+                <th>Available</th>
+                <th>Distributed</th>
+                <th>Availability Ratio</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================
+         PAGE 4: PRIORITY QUEUE
+         ======================================================== -->
+    <section class="page" id="page-pqueue">
+      
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Priority Queue — Multi-Lane Architecture</h3>
+            <span class="panel-tag">4 Internal FIFO Queues</span>
+          </div>
+          <button class="btn btn-primary" id="pqAllocateBtn">Process Next Highest Priority →</button>
+        </div>
+        <p class="muted">
+          Our C implementation maintains <strong>four internal queues</strong>: Critical, High, Medium, and Low. 
+          When an allocation is requested, the system serves the highest non-empty priority lane first. 
+          Within the same priority lane, earlier arrivals are strictly served first (FIFO).
+        </p>
+
+        <!-- 4-Lane Column Grid -->
+        <div id="pqLevels" class="pq-levels"></div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================
+         PAGE 5: ALLOCATION
+         ======================================================== -->
+    <section class="page" id="page-allocation">
+      
+      <!-- Action Hero -->
+      <div class="panel allocation-hero-panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Resource Allocation Engine</h3>
+            <span class="panel-tag">Core C Simulation</span>
+          </div>
+        </div>
+        <p class="muted">
+          Pulls the highest-priority request from the Priority Queue, verifies resource inventory in the C array, 
+          calculates fulfillable quantity (full or partial), updates request status, registers in the Linked List, 
+          and logs the operation onto the undo Stack.
+        </p>
+        
+        <div class="allocation-cta-box">
+          <button class="btn btn-primary btn-lg" id="allocateBtn">
+            <span>▶ Allocate Next Priority Request</span>
+          </button>
+          <span class="allocation-cta-hint">Processes next request matching current stock</span>
+        </div>
+
+        <!-- Result Box -->
+        <div id="allocateResult" class="allocate-result"></div>
+      </div>
+
+      <!-- Waiting on Resources Panel -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Requests Waiting for Resources</h3>
+            <span class="panel-tag">Stock Shortage Hold</span>
+          </div>
+        </div>
+        <p class="muted">
+          Requests that could not be fulfilled due to 0 available stock at allocation time. 
+          Once more stock is added via the Inventory page, click <strong>Retry</strong> to fulfill them.
+        </p>
+
+        <div class="table-wrap">
+          <table id="waitingTable">
+            <thead>
+              <tr>
+                <th>Request ID</th>
+                <th>Area</th>
+                <th>Resource</th>
+                <th>Deficit Required</th>
+                <th>Priority</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================
+         PAGE 6: ALLOCATION HISTORY & UNDO
+         ======================================================== -->
+    <section class="page" id="page-history">
+      
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Allocation History (Stack)</h3>
+            <span class="panel-tag">LIFO Audit Log</span>
+          </div>
+          <button class="btn btn-secondary" id="undoBtn">↺ Undo Last Allocation</button>
+        </div>
+        <p class="muted">
+          Every completed allocation is pushed onto an array-based <strong>Stack</strong> in C. 
+          The newest allocation appears at the top (Last-In, First-Out). 
+          Clicking <strong>Undo Last Allocation</strong> pops the top record, restores the inventory, 
+          adjusts the request's allocated count, removes it from the completed Linked List, and places it back in line.
+        </p>
+
+        <div class="table-wrap">
+          <table id="historyTable">
+            <thead>
+              <tr>
+                <th>Alloc. ID</th>
+                <th>Request ID</th>
+                <th>Resource</th>
+                <th>Quantity</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================
+         PAGE 7: SEARCH REQUESTS
+         ======================================================== -->
+    <section class="page" id="page-search">
+      
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Search Relief Requests</h3>
+            <span class="panel-tag">Linear &amp; Binary Search in C</span>
+          </div>
+        </div>
+        <p class="muted">
+          Demonstrates two fundamental search algorithms implemented in C:
+          <strong>Linear Search</strong> scans all records one-by-one (O(n)), while 
+          <strong>Binary Search</strong> performs divide-and-conquer (O(log n)) on an array pre-sorted by Request ID.
+        </p>
+
+        <div class="search-bar">
+          <select id="searchField">
+            <option value="requestID">Request ID</option>
+            <option value="location">Location / District</option>
+            <option value="area">Area / Village</option>
+            <option value="disasterType">Disaster Type</option>
+            <option value="resource">Resource Name</option>
+            <option value="priority">Priority</option>
+            <option value="all">All Fields</option>
+          </select>
+          <input type="text" id="searchInput" placeholder="Type query to search…">
+          <button class="btn btn-primary" id="searchBtn">Linear Search [O(n)]</button>
+          <button class="btn btn-secondary" id="binarySearchBtn">Binary Search by ID [O(log n)]</button>
+        </div>
+
+        <div id="searchMeta" class="search-meta-box"></div>
+
+        <div class="table-wrap">
+          <table id="searchTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Area</th>
+                <th>Location</th>
+                <th>Disaster</th>
+                <th>Resource</th>
+                <th>Priority</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================
+         PAGE 8: SORT REQUESTS
+         ======================================================== -->
+    <section class="page" id="page-sort">
+      
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Bubble Sort Demonstration</h3>
+            <span class="panel-tag">O(n²) Comparison Sort in C</span>
+          </div>
+        </div>
+        <p class="muted">
+          Our C engine implements <strong>Bubble Sort</strong>, repeatedly comparing adjacent elements and swapping them 
+          if they violate the chosen ordering rule. Compare the array state before and after sorting side-by-side.
+        </p>
+
+        <div class="search-bar">
+          <label class="sort-select-label">Sort By:
+            <select id="sortField">
+              <option value="priority">Urgency Priority (Critical → Low)</option>
+              <option value="population">Population Affected</option>
+              <option value="quantity">Quantity Required</option>
+              <option value="requestID">Request ID</option>
+              <option value="area">Area Name</option>
+              <option value="location">Location</option>
+            </select>
+          </label>
+          <label class="sort-select-label">Direction:
+            <select id="sortDir">
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
+            </select>
+          </label>
+          <button class="btn btn-primary" id="sortBtn">Run Bubble Sort in C</button>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <h4 class="mini-head">Before Sorting (Original Order)</h4>
+            <div class="table-wrap">
+              <table id="beforeSortTable">
+                <thead>
+                  <tr><th>ID</th><th>Priority</th><th>Population</th><th>Quantity</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h4 class="mini-head">After Bubble Sort (C Engine Output)</h4>
+            <div class="table-wrap">
+              <table id="afterSortTable">
+                <thead>
+                  <tr><th>ID</th><th>Priority</th><th>Population</th><th>Quantity</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ========================================================
+         PAGE 9: REPORTS & ANALYTICS
+         ======================================================== -->
+    <section class="page" id="page-reports">
+      
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title-group">
+              <h3>Simulation Summary</h3>
+              <span class="panel-tag">Key Metrics</span>
+            </div>
+          </div>
+          <ul class="report-list" id="reportSummary"></ul>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title-group">
+              <h3>Distribution by Priority</h3>
+              <span class="panel-tag">Severity</span>
+            </div>
+          </div>
+          <div id="reportPriority" class="bar-list"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Distribution by Disaster Type</h3>
+            <span class="panel-tag">Incident Breakdown</span>
+          </div>
+        </div>
+        <div id="reportDisaster" class="bar-list"></div>
+      </div>
+
+      <!-- Linked List View -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Completed / Distributed Requests (Singly Linked List)</h3>
+            <span class="panel-tag">Dynamic Node Chain</span>
+          </div>
+        </div>
+        <p class="muted">
+          Requests that have received resources are held in a Singly Linked List in C with dynamic pointer nodes (LLNode).
+        </p>
+        <div class="table-wrap">
+          <table id="completedTable">
+            <thead>
+              <tr>
+                <th>Request ID</th>
+                <th>Area</th>
+                <th>Resource</th>
+                <th>Quantity Allocated</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================
+         PAGE 10: ABOUT & FODS VIVA GUIDE
+         ======================================================== -->
+    <section class="page" id="page-about">
+      
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Fundamental Data Structures (FODS) Mapping</h3>
+            <span class="panel-tag">Academic viva Reference</span>
+          </div>
+        </div>
+        <p class="muted">Comprehensive mapping of every fundamental data structure implemented in C and utilized in RELIEF-Q.</p>
+
+        <div class="table-wrap">
+          <table class="academic-table">
+            <thead>
+              <tr>
+                <th>Data Structure</th>
+                <th>C Source File</th>
+                <th>Real-World Role in Simulator</th>
+                <th>Time Complexity</th>
+                <th>Space Complexity</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Structure (`struct`)</strong></td>
+                <td><code class="mono">c_src/relief_q.h</code></td>
+                <td>Encapsulates all attributes of one relief request record (ID, area, disaster, population, quantity, priority, status) into a cohesive type.</td>
+                <td>O(1) field access</td>
+                <td>O(1) per record</td>
+              </tr>
+              <tr>
+                <td><strong>Array</strong></td>
+                <td><code class="mono">c_src/data_structures.c</code></td>
+                <td>Contiguous in-memory warehouse inventory storing Food, Water, Medicines, Blankets, Tents, Clothes, and Emergency Kits.</td>
+                <td>Access: O(1)<br>Search: O(n)</td>
+                <td>O(k) where k is number of resources</td>
+              </tr>
+              <tr>
+                <td><strong>Queue (FIFO)</strong></td>
+                <td><code class="mono">c_src/data_structures.c</code></td>
+                <td>Linked list-based queue with front &amp; rear pointers. Holds newly arrived requests in strict arrival order before classification.</td>
+                <td>Enqueue: O(1)<br>Dequeue: O(1)</td>
+                <td>O(n) dynamic nodes</td>
+              </tr>
+              <tr>
+                <td><strong>Priority Queue</strong></td>
+                <td><code class="mono">c_src/data_structures.c</code></td>
+                <td>Four discrete FIFO queues (Critical, High, Medium, Low). Guarantees Critical requests are always served first, and breaks ties by FIFO arrival order.</td>
+                <td>Insert: O(1)<br>Dequeue: O(1)</td>
+                <td>O(n) across 4 lanes</td>
+              </tr>
+              <tr>
+                <td><strong>Stack (LIFO)</strong></td>
+                <td><code class="mono">c_src/data_structures.c</code></td>
+                <td>Audit stack storing every allocation event. Powers the "Undo Last Allocation" feature by popping the most recent allocation (LIFO).</td>
+                <td>Push: O(1)<br>Pop: O(1)</td>
+                <td>O(m) where m is total allocations</td>
+              </tr>
+              <tr>
+                <td><strong>Singly Linked List</strong></td>
+                <td><code class="mono">c_src/data_structures.c</code></td>
+                <td>Dynamic chain of <code class="mono">LLNode</code> structures holding completed and partially distributed relief requests. Demonstrates dynamic pointer traversal and node deletion.</td>
+                <td>Insert: O(n)<br>Delete: O(n)<br>Search: O(n)</td>
+                <td>O(n) node pointers</td>
+              </tr>
+              <tr>
+                <td><strong>Linear Search</strong></td>
+                <td><code class="mono">c_src/data_structures.c</code></td>
+                <td>Scans request records sequentially across fields (ID, area, location, disaster, resource, priority) with case-insensitive matching.</td>
+                <td>Best: O(1)<br>Worst: O(n)</td>
+                <td>O(1) auxiliary</td>
+              </tr>
+              <tr>
+                <td><strong>Binary Search</strong></td>
+                <td><code class="mono">c_src/data_structures.c</code></td>
+                <td>Divide-and-conquer search on an array pre-sorted by Request ID. Tracks comparison step indices for educational demonstration.</td>
+                <td>Best: O(1)<br>Worst: O(log n)</td>
+                <td>O(1) auxiliary</td>
+              </tr>
+              <tr>
+                <td><strong>Bubble Sort</strong></td>
+                <td><code class="mono">c_src/data_structures.c</code></td>
+                <td>Adjacent comparison and swap algorithm sorting requests by priority, population, quantity, or ID. Demonstrates quadratic sorting.</td>
+                <td>Best: O(n)<br>Worst: O(n²)</td>
+                <td>O(1) in-place</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Viva Q&A Accordion -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title-group">
+            <h3>Key Viva Questions &amp; Detailed Answers</h3>
+            <span class="panel-tag">Exam Preparation</span>
+          </div>
+        </div>
+
+        <div class="viva-qa-list">
+          <div class="viva-item">
+            <div class="viva-q">Q1. Why is a Priority Queue used instead of a simple FIFO Queue for disaster relief?</div>
+            <div class="viva-a">
+              In a disaster scenario, requests arrive with drastically different levels of life-threatening severity. A simple FIFO queue would force a critical blood/medicine request to wait behind a non-urgent blanket request simply because the blanket request arrived two minutes earlier. A Priority Queue ensures that critical and life-saving demands are always served first, regardless of arrival order.
+            </div>
+          </div>
+
+          <div class="viva-item">
+            <div class="viva-q">Q2. How does your Priority Queue break ties between requests with the same priority?</div>
+            <div class="viva-a">
+              Our C implementation uses four separate FIFO queues internally (one for each priority level). When two requests have the exact same priority (e.g. both are "Critical"), they enter the same lane queue. Because each lane is a true FIFO queue with front and rear pointers, requests within that lane leave in the exact order they entered. Thus, priority takes precedence, and arrival order breaks ties.
+            </div>
+          </div>
+
+          <div class="viva-item">
+            <div class="viva-q">Q3. Why is a Stack chosen for the Undo Last Allocation feature?</div>
+            <div class="viva-a">
+              A Stack operates on the Last-In, First-Out (LIFO) principle. An undo operation must always reverse the <em>most recently executed</em> action first. The top of the stack naturally holds the latest allocation, allowing O(1) retrieval and reversal of warehouse inventory, request status, and linked list records.
+            </div>
+          </div>
+
+          <div class="viva-item">
+            <div class="viva-q">Q4. How does the WebAssembly bridge communicate between C and JavaScript?</div>
+            <div class="viva-a">
+              The C source files are compiled using Emscripten with WebAssembly flags into a binary <code class="mono">relief_q.wasm</code> and glue script <code class="mono">relief_q.js</code>. The frontend passes inputs across the memory boundary via exported C functions (<code class="mono">rq_allocate_next</code>, <code class="mono">rq_submit_request</code>, etc.), and the C engine serializes its state into JSON stored in a memory buffer. JavaScript parses this output and renders the UI. The C engine remains 100% authoritative for the simulation state.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+</div>
+
+<!-- WebAssembly Glue & UI Controller Scripts -->
+<script src="wasm/relief_q.js"></script>
+<script src="js/wasm_loader.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
